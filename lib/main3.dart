@@ -6,8 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(MyApp());
@@ -68,7 +66,7 @@ class _ReportEventScreenState extends State<ReportEventScreen> {
       join(await getDatabasesPath(), 'reports_database.db'),
       onCreate: (db, version) {
         return db.execute(
-          'CREATE TABLE reports(id INTEGER PRIMARY KEY, description TEXT, latitude REAL, longitude REAL, imageBytes BLOB, csrfToken TEXT)',
+          'CREATE TABLE reports(id INTEGER PRIMARY KEY, description TEXT, latitude REAL, longitude REAL, imageBytes BLOB)',
         );
       },
       onUpgrade: (db, oldVersion, newVersion) {
@@ -115,29 +113,7 @@ class _ReportEventScreenState extends State<ReportEventScreen> {
       latitude = _locationData!.latitude!;
       longitude = _locationData!.longitude!;
     }
-    String csrfToken = ""; // Token CSRF
 
-    try {
-      final response = await http.get(
-        Uri.parse(
-            'http://192.168.245.94:80/generar-token-csrf'), // Reemplaza con tu URL para obtener el token CSRF
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        csrfToken = data['csrf_token'];
-        print("TOKEN=" + csrfToken);
-
-        // Guardar el token en SharedPreferences
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('csrf_token', csrfToken);
-      } else {
-        throw Exception('Error al obtener el token CSRF');
-      }
-    } catch (e) {
-      print('Error al obtener el token CSRF: $e');
-      return;
-    }
     final Database db = await _openDatabase();
 
     for (var image in _images) {
@@ -150,22 +126,19 @@ class _ReportEventScreenState extends State<ReportEventScreen> {
       );
 
       try {
-        String? csrfToken =
-            await _getStoredCsrfToken(); // Obtener el token guardado
         final response = await http.post(
           Uri.parse('http://192.168.245.94:80/datos-ingresar'),
           body: {
             'description': description,
             'latitude': latitude.toString(),
             'longitude': longitude.toString(),
-            'id_celular': csrfToken.toString(),
+            'id_celular': 12.toString(),
             'imagen': imageBytes.toString()
           },
         );
 
         if (response.statusCode == 200) {
           print('Datos enviados correctamente');
-          print(csrfToken.toString());
         } else {
           print(
               'Error al enviar datos. Código de estado: ${response.statusCode}');
@@ -179,11 +152,6 @@ class _ReportEventScreenState extends State<ReportEventScreen> {
     setState(() {
       _images.clear();
     });
-  }
-
-  Future<String?> _getStoredCsrfToken() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('csrf_token');
   }
 
   void _showAllReports(BuildContext context) {
